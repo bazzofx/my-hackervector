@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# hackvertor - entry point wrapper so the tool can be called without the .sh
+# suffix (and from anywhere on PATH).  All the work happens in hackvertor.sh.
+exec bash "$(cd "$(dirname "$0")" && pwd)/hackvertor.sh" "$@"

@@ -1,0 +1,31 @@
+# ============================================================================
+# hackvertor.sh - line ending rules
+# ============================================================================
+# This matters more than usual here: with git's `core.autocrlf = true` on a
+# Windows checkout, the shell scripts would otherwise be converted to CRLF and
+# bash then fails on every line with:
+#
+#     hackvertor.sh: line 1: $'\r': command not found
+#     /usr/bin/env: 'bash\r': No such file or directory
+#
+# So force LF for everything a POSIX shell or Python reads, and keep CRLF only
+# for the Windows batch launcher.
+# ============================================================================
+
+* text=auto
+
+# shell + launchers
+*.sh            text eol=lf
+hackvertor      text eol=lf
+hackvertor.cmd  text eol=crlf
+
+# test fixtures are byte-compared by the test suite, so keep their line endings
+# stable on every platform
+*.tsv           text eol=lf
+
+# sources and docs
+*.py            text eol=lf
+*.java          text eol=lf
+*.js            text eol=lf
+*.json          text eol=lf
+*.md            text eol=lf

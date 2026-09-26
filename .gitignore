@@ -1,0 +1,86 @@
+# ============================================================================
+# hackvertor.sh - ignore rules
+# ============================================================================
+# Tracked / deliverable files (NOT ignored - listed here for clarity):
+#
+#   hackvertor.sh          the tool itself, a single self-contained script
+#   hackvertor             POSIX wrapper so it can be called as `hackvertor`
+#   hackvertor.cmd         cmd.exe / PowerShell launcher (finds Git Bash)
+#   README.md              usage, tag semantics, fidelity notes
+#   tests/run-tests.sh     test suite
+#   tests/golden.tsv       200 vectors generated from real unbescape jar output
+#   tests/vectors.tsv      vectors from Hackvertor's own JUnit suite
+#   tools/gen_tables.py    builds lib/entity_tables.sh from tools/ref/
+#   tools/build.py         splices the tables into hackvertor.sh
+#   tools/make_golden.py   rebuilds tests/*.tsv (reads research/probe-out.txt)
+#   tools/ref/             vendored unbescape initialisers (build input, Apache-2.0)
+#   research/probe*.txt    jar probe evidence (probe-out.txt is a build input)
+#   research/probe*.js     the Nashorn probe that produced it
+#   research/port.py       Python port that was diffed against the jar
+# ============================================================================
+
+# --- research scratch -------------------------------------------------------
+# _research/ is throwaway investigation material: scraped search/HTML dumps, a
+# downloaded Temurin JDK and compiled classes (~309 MB).  Neither the build nor
+# the test suite reads anything from it.
+_research/
+
+# --- upstream reference checkout --------------------------------------------
+# original-example/ is a clone of the upstream Hackvertor repository (~40 MB,
+# with a nested .git of its own, so git would only record it as a broken
+# submodule).  It is reference material: tools/ref/ already carries the two
+# unbescape initialisers the entity tables are generated from.
+# To vendor it anyway, remove the nested repo and force-add it:
+#     rm -rf original-example/hackvertor/.git
+#     git add -f original-example
+original-example/
+
+# --- research binaries ------------------------------------------------------
+# Third-party jars and the extracted unbescape tree: only needed to re-run the
+# jar probe (see research/probe.js and README.md).  Re-download with:
+#     curl -O http://maven-central.storage-download.googleapis.com/maven2/org/\
+#       unbescape/unbescape/1.1.6.RELEASE/unbescape-1.1.6.RELEASE.jar
+research/*.jar
+research/*.zip
+research/unbescape-src/
+
+# --- generated / intermediate ----------------------------------------------
+# lib/entity_tables.sh is written by tools/gen_tables.py and spliced into
+# hackvertor.sh by tools/build.py; hackvertor.sh itself is the deliverable and
+# stays tracked.  tests/last-run.txt is just redirected test output.
+lib/
+tests/last-run.txt
+
+# --- investigation notes from the porting session ---------------------------
+encoder-behavior-report.md
+fetch.js
+tools/probe.sh
+
+# --- scratch / junk ---------------------------------------------------------
+*.tmp
+*.bak
+*.orig
+*.rej
+*.log
+*~
+*.swp
+*.swo
+\#*\#
+.\#*
+
+# --- editors ----------------------------------------------------------------
+.vscode/
+.idea/
+*.iml
+.classpath
+.project
+
+# --- OS noise ---------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+desktop.ini

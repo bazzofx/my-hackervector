@@ -1,0 +1,17 @@
+Hackvertor is a tag-based conversion tool for transforming, encoding, decoding, encrypting, hashing, and otherwise manipulating data inside Burp Suite. Operations are expressed as XML-like tags such as <@base64>text</@base64>, which can be nested to any depth and accept string, boolean, or numeric arguments to compose complex conversion chains.
+
+Features
+Large built-in tag library covering encoding, decoding, encryption, decryption, hashing, HMAC, compression, charset conversion, date, math, string manipulation, XSS payloads, conditions, and system operations.
+Unlimited tag nesting that evaluates from the innermost tag outwards, letting you build multi-step conversion pipelines in a single expression.
+Use tags directly in Repeater requests and in any request editor via a dedicated message editor tab, so the server receives the converted payload while you keep the readable tag in view.
+Create custom tags in JavaScript, Python, Groovy, or Java to extend the tag set with your own conversion logic.
+AI-assisted workflows: generate custom tag code from a natural-language prompt, run AI-only custom tags, auto-summarise custom tag code, and analyse Repeater traffic to derive encoding and decoding tags automatically.
+Global variables that can be referenced across tags and sessions, plus a Tag Automator for scripted multi-tag execution against requests and responses.
+Smart auto-decoding to identify and unwrap unknown encodings, with WebSocket support through the Montoya API.
+Copy converted output as a Bambda for reuse in other Burp features.
+Usage
+Open the Hackvertor tab in Burp Suite and type or paste text into the input pane.
+Select the text you want to convert, then browse the category tabs (Encode, Decode, Hash, Encrypt, Languages, and so on) and click a tag to wrap the selection.
+Hackvertor evaluates the tags from the innermost outwards and shows the converted result in the output pane.
+To use tags in live traffic, right-click a request in Repeater and choose the Hackvertor menu, or switch a request editor to the Hackvertor message tab. Tags are rendered on send so the server receives the converted request.
+Open the Hackvertor menu and choose Create custom tag to add your own tag in JavaScript, Python, Groovy, Java, or AI, and manage stored variables under Global variables.
