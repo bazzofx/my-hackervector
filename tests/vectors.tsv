@@ -73,6 +73,11 @@ d_base32		4a42535759334450	48656c6c6f	ConvertorTests.testBase32Decoding
 d_base64		5347567362473867563239796247513d	48656c6c6f20576f726c64	ConvertorTests.testBase64Decoding
 d_base64url		53475673624738675632397962475168	48656c6c6f20576f726c6421	ConvertorTests.testBase64UrlDecoding
 d_hex		343134323433	414243	ConvertorTests.testHex2Ascii
+d_hex		3431203432	4142	Convertors.hex2ascii, space separated
+d_hex		34313a3432	4142	Convertors.hex2ascii scans for pairs, so ':' works too
+d_hex		307834313432	4142	0x form
+d_sql_hex		3078353334353463343534333534	53454c454354	d_sql_hex with the 0x prefix
+d_sql_hex		353334353463343534333534	53454c454354	d_sql_hex without the 0x prefix
 d_html_entities		266c743b7363726970742667743b	3c7363726970743e	ConvertorTests.testHtmlEntitiesDecoding
 d_url		48656c6c6f2b576f726c64253231	48656c6c6f20576f726c6421	ConvertorTests.testUrlDecoding
 d_burp_url		48656c6c6f253230576f726c64	48656c6c6f20576f726c64	HackvertorAllTagsUiTest

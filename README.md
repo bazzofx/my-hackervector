@@ -4,10 +4,18 @@ A stand-alone command-line port of the encoding tags from the [Hackvertor](https
 
 ```sh
 hackvertor.sh -base64 "admin' OR 1=1--"
+```
 
+```sh
 cat content.txt | hackvertor.sh -base64
+```
 
-hackvertor.sh '<@base64><@hex>alert(1)'
+```sh
+hackvertor.sh '<@base64><@hex>alert(1)</@hex></@base64>'
+```
+
+```sh
+hackvertor.sh -dec_entities SELECT
 ```
 
 Everything is implemented in one Bash script (`hackvertor.sh`, ~3,200 lines, ~84 KB).
@@ -37,14 +45,43 @@ hackvertor.sh '<@base64><@hex>alert(1)'
 | Option | Meaning |
 |---|---|
 | `-h`, `--help` | Show help |
-| `-V`, `--version` | Show version |
-| `-l`, `--list` | List every tag |
+| `-V`, `--version` | Show version (`hackvertor 1.0.0`) |
+| `-l`, `--list` | List every tag flag |
 | `-N`, `--no-newline` | Do not append a newline to the result |
 | `-K`, `--keep-newline` | Keep the trailing newline of piped input |
 | `-q`, `--quiet` | Suppress warnings |
-| `--eval`, `--no-eval` | Force / disable evaluation of embedded `<@tag>` |
-| `--alg`, `--secret` | JWT algorithm / secret for `-jwt` |
-| `--` | End of options |
+| `--eval` | Always evaluate embedded `<@tag>...</@tag>` |
+| `--no-eval` | Never evaluate embedded tags |
+| `--alg ALGO`, `--alg=ALGO` | JWT algorithm for `-jwt`: `HS256`, `HS384`, `HS512`, `NONE` |
+| `--secret SECRET`, `--secret=SECRET` | JWT secret for `-jwt` |
+| `--debug` | Trace every pipeline step on stderr |
+| `--` | End of options; everything after it is content |
+
+Exit codes: `0` on success, `2` for a usage error or an unknown tag.
+
+Make it executable once, then call it however you like:
+
+```sh
+chmod +x hackvertor.sh
+./hackvertor.sh -base64 "test"
+
+# or put it on PATH and drop the .sh
+install -m 0755 hackvertor.sh ~/.local/bin/hackvertor
+hackvertor -dec_entities SELECT
+```
+
+`--debug` writes its trace to **stderr only**, so stdout stays byte exact and piped output is unaffected:
+
+```sh
+hackvertor.sh --debug -hex= -base64 test
+```
+
+```text
+hackvertor: input => test
+hackvertor: step 1/2 hex() => 74657374
+hackvertor: step 2/2 base64() => NzQ2NTczNzQ=
+NzQ2NTczNzQ=
+```
 
 Tag flags accept Hackvertor-style arguments, either quoted as one shell word or after an `=`:
 
@@ -64,6 +101,25 @@ hackvertor.sh -hex 'test'
 hackvertor.sh -jwt=HS512,s3cr3t '{"sub":"1"}'
 ```
 
+Every tag flag accepts four spellings:
+
+| Spelling | `-hex` on `AB` | Notes |
+|---|---|---|
+| `-hex 'AB'` | `41 42` | the separator the Hackvertor UI button inserts |
+| `--hex 'AB'` | `41 42` | long form works for every flag |
+| `-hex= 'AB'` | `4142` | explicitly empty separator |
+| `-hex=: 'AB'` | `41:42` | custom separator |
+| `"-hex(':')" 'AB'` | `41:42` | Hackvertor style; quote the whole flag |
+
+Arguments are comma separated, may be quoted with `'` or `"`, and understand Java-style escapes (`\t`, `\n`, `\r`):
+
+```sh
+hackvertor.sh -hex=\\t 'AB'
+# 41<TAB>42
+```
+
+Only **`-hex`** (optional separator) and **`-jwt`** (`algo`, `secret`) take arguments. Arguments on any other flag are ignored, so `-base64=zzz test` still gives `dGVzdA==`.
+
 ### Pipelines
 
 Flags are applied **in the order given**, so the first flag is the innermost conversion and the last flag is the outermost.
@@ -74,8 +130,11 @@ This is the same as writing the tags in reverse order:
 hackvertor.sh -hex= -base64 'test'
 # base64(hex("test"))
 
-hackvertor.sh '<@base64><@hex>test'
-# identical
+hackvertor.sh '<@base64><@hex>test</@hex></@base64>'
+# identical: NzQ2NTczNzQ=
+
+hackvertor.sh -base64 -hex= 'alert(1)'
+# the other way round: hex(base64("alert(1)")) = 5957786c636e516f4d536b3d
 ```
 
 ### Trailing newlines
@@ -96,16 +155,19 @@ A result is always terminated with one newline unless `-N` is specified.
 
 ### Embedded tags
 
-If the content contains `<@tag>...`, the tags are evaluated innermost-first, exactly like Hackvertor.
+If the content contains `<@tag>...</@tag>`, the tags are evaluated innermost-first, exactly like Hackvertor.
 
 Use `--no-eval` to disable this behaviour.
 
 ```sh
-hackvertor.sh '<@base64><@hex>alert(1)'
+hackvertor.sh '<@base64><@hex>alert(1)</@hex></@base64>'
 # NjE2YzY1NzI3NDI4MzEyOQ==
 
-hackvertor.sh -base64 '<@hex>test'
+hackvertor.sh -base64 '<@hex>test</@hex>'
 # NzQ2NTczNzQ=
+
+hackvertor.sh '<@dec_entities>SELECT</@dec_entities>'
+# &#83;&#69;&#76;&#69;&#67;&#84;
 ```
 
 Bare tags follow Hackvertor's own defaults.
@@ -113,7 +175,7 @@ Bare tags follow Hackvertor's own defaults.
 For example, a bare `<@hex>` has **no separator**, matching:
 
 ```text
-<@hex>ABC
+<@hex>ABC</@hex>
 ```
 
 →
@@ -153,34 +215,109 @@ A bare command-line `-hex` uses the separator inserted by the Hackvertor UI butt
 | `urlencode` (`url_encode`) | `test` | Java `URLEncoder`, space → `+` |
 | `urlencode_not_plus` | `test` | `URLEncoder` with space → `%20` |
 | `urlencode_all` | `%74%65%73%74` | `%XX` for every character, uppercase |
-| `php_non_alpha` | | PHP payload with no alphanumerics |
+| `php_non_alpha` | `<?php $_[]++;...$Ä.'"');$__($_);?>` | PHP payload with no alphanumerics |
 | `php_chr` | `chr(116).chr(101).chr(115).chr(116)` | `chr(N)` chain |
 | `sql_hex` | `0x74657374` | `0x` + hex |
-| `jwt` | `eyJ...` | JWT, arguments `algo,secret`; default `HS256,secret` |
+| `jwt` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` | JWT, arguments `algo,secret`; default `HS256,secret` |
 | `quoted_printable` | `test` | Quoted printable, `=XX` uppercase |
+
+Outputs above are for the input `test`. `php_non_alpha` is abbreviated: the real
+output is a full `<?php` payload whose prologue decodes the string, for example
+`-php_non_alpha 'id'` starts with
+`<?php $_[]++;$_[]=$_._;$_____=$_[(++$__[])][(++$__[])+(++$__[])+(++$__[])];`.
+
+### Flags that take arguments
+
+| Flag | Argument | Example | Output |
+|---|---|---|---|
+| `hex` | separator (default one space) | `"-hex('')" 'AB'` | `4142` |
+| `hex` | | `-hex=: 'AB'` | `41:42` |
+| `hex` | | `-hex 'AB'` | `41 42` |
+| `jwt` | `algo` | `-jwt --alg NONE '{"sub":"1"}'` | `eyJhbGciOiJOT05FIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxIn0.` |
+| `jwt` | `algo,secret` | `-jwt=HS256,secret '{"sub":"1"}'` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0.8qZF8vbN3UpcanXFc-mPXJkOPN01-bRch8XX3rToP1U` |
+| `jwt` | empty secret | `-jwt=HS256,'' '{"sub":"1"}'` | HMAC keyed with a single NUL byte, as Hackvertor does |
+
+Supported JWT algorithms: `HS256`, `HS384`, `HS512`, `NONE` (unsigned, output
+ends with a dot). Anything else returns `Unsupported algorithm`, and a payload
+that is not a JSON object returns `Unable to create token` — the same strings
+Hackvertor uses.
+
+### Entity tags: named or numeric?
+
+`html_entities` and `html5_entities` use unbescape's
+`LEVEL_3_ALL_NON_ALPHANUMERIC`, so **letters and digits pass through untouched**
+and only non-alphanumerics are escaped, preferring a *named* reference:
+
+```sh
+hackvertor.sh -html_entities S
+# S                     (nothing to escape)
+
+hackvertor.sh -html_entities 'SELECT * FROM t'
+# SELECT&#32;&#42;&#32;FROM&#32;t    (space and * escaped, letters kept)
+
+hackvertor.sh -html_entities '©'
+# &#169;                (HTML4 has no name for it)
+
+hackvertor.sh -html5_entities '©'
+# &copy;
+```
+
+For **numeric** references on every character — `S` → `&#83;` — use
+`dec_entities` (decimal) or `hex_entities` (hex):
+
+```sh
+hackvertor.sh -dec_entities S
+# &#83;
+
+hackvertor.sh -dec_entities SELECT
+# &#83;&#69;&#76;&#69;&#67;&#84;
+
+hackvertor.sh -hex_entities SELECT
+# &#x53;&#x45;&#x4c;&#x45;&#x43;&#x54;
+```
 
 ## Decode
 
-The following decode tags are also implemented:
+| Tag | Example | Output |
+|---|---|---|
+| `d_base32` | `-d_base32 'ORSXG5A='` | `test` |
+| `d_base64` | `-d_base64 'dGVzdA=='` | `test` |
+| `d_base64url` | `-d_base64url 'dGVzdD4-ZGF0YQ'` | `test>>data` |
+| `d_hex` | `-d_hex '41 42'` | `AB` |
+| `d_sql_hex` | `-d_sql_hex '0x53454c454354'` | `SELECT` |
+| `d_html_entities` | `-d_html_entities '&lt;b&gt;'` | `<b>` |
+| `d_html5_entities` | `-d_html5_entities '&copy;&euro;'` | `©€` |
+| `d_url` | `-d_url 'Hello+World%21'` | `Hello World!` |
+| `d_burp_url` | `-d_burp_url 'a%2Fb%20c'` | `a/b c` |
+| `d_quoted_printable` | `-d_quoted_printable 'a=3Db'` | `a=b` |
+| `d_unicode_escapes` | `-d_unicode_escapes '\u0074\u0065\x73\x74'` | `test` |
+| `d_css_escapes` | `-d_css_escapes '\74\65\73\74'` | `test` |
+| `d_octal_escapes` | `-d_octal_escapes '\164\145\163\164'` | `test` |
+| `d_php_chr` | `-d_php_chr 'chr(105).chr(100)'` | `id` |
+| `d_jwt_get_header` | `-d_jwt_get_header '<token>'` | `{"alg":"HS256","typ":"JWT"}` |
+| `d_jwt_get_payload` | `-d_jwt_get_payload '<token>'` | `{"sub":"1234567890","name":"John Doe","iat":1516239022}` |
 
-```text
-d_base32
-d_base64
-d_base64url
-d_hex
-d_sql_hex
-d_html_entities
-d_html5_entities
-d_url
-d_burp_url
-d_quoted_printable
-d_unicode_escapes
-d_css_escapes
-d_octal_escapes
-d_php_chr
-d_jwt_get_header
-d_jwt_get_payload
-```
+Notes:
+
+- `d_hex` accepts plain hex, space/colon separated hex and the `0x` form.
+- `d_sql_hex` accepts the `0x` form with or without the prefix.
+- `d_url` decodes `+` to a space and, like Hackvertor, returns the input
+  unchanged when a `%` escape is malformed. `d_burp_url` is permissive instead.
+- `d_unicode_escapes` also understands `\xHH` and `\u{...}`.
+- `d_jwt_get_header` / `d_jwt_get_payload` print `Invalid token` for a token
+  without three dot separated parts.
+
+## Aliases
+
+| Alias | Same as |
+|---|---|
+| `url_encode` | `urlencode` |
+| `url_encode_all` | `urlencode_all` |
+| `url_encode_not_plus` | `urlencode_not_plus` |
+| `url_encode_burp`, `burp_url_encode` | `burp_urlencode` |
+| `base64_url` | `base64url` |
+| `base32url`, `base32_url` | `base32` |
+| `hex_escape` | `hex_escapes` |
 
 ---
 
@@ -193,7 +330,7 @@ The ports were written against Hackvertor's `Convertors.java` and then checked a
 | `html_entities`, `html5_entities`, `hex_entities`, `dec_entities`, `hex_escapes`, `unicode_escapes`, `css_escapes`, `css_escapes6` | **unbescape 1.1.6.RELEASE JAR**, executed through a JRE 8/Nashorn probe (`research/probe.js`, output in `research/probe-out.txt`) | 200/200 vectors byte-identical (`tests/golden.tsv`) |
 | HTML named-reference tables | Parsed directly from unbescape's `Html4EscapeSymbolsInitializer` / `Html5EscapeSymbolsInitializer` sources (`tools/ref/`) | 252 HTML4 names, 1,446 HTML5 codepoints, first-declared name wins, identical to unbescape |
 | `quoted_printable` | **commons-codec 1.15 JAR** executed directly; Hackvertor pins 1.15 | Matches UTF-8, TAB/SPACE literal, `=` → `=3D`, CR/LF escaped, never wrapped, uppercase hex |
-| `urlencode`, `urlencode_not_plus`, `urlencode_all` | JDK 17 `URLEncoder` | Matches, including the `-_. *` literal set and `%7E` for `~` |
+| `urlencode`, `urlencode_not_plus`, `urlencode_all` | JDK 17 `URLEncoder` | Matches, including the `-_.*` literal set and `%7E` for `~` |
 | JWT | `JWTTest.java` full-token assertions | HS256/HS384/HS512/NONE and the error strings match |
 | base32/base64/hex/php/sql/etc. | Hackvertor's own JUnit suite (`ConvertorTests`, `ConvertorTestsBasic`, `HackvertorAllTagsUiTest`) | Matching vectors in `tests/vectors.tsv` |
 
@@ -314,7 +451,7 @@ bash tests/run-tests.sh -v
 
 `tests/run-tests.sh` compares results byte-for-byte through temporary files, so binary results, embedded newlines, and high bytes are all covered.
 
-There are approximately **320 test cases**.
+There are approximately **325 test cases**.
 
 ---
 
@@ -324,16 +461,18 @@ There are approximately **320 test cases**.
 |---|---|
 | `hackvertor.sh` | The tool; single-file, self-contained |
 | `hackvertor` | Convenience wrapper so it can be called as `hackvertor` |
-| `hackvertor.cmd` | Windows convenience wrapper |
+| `hackvertor.cmd` | Windows convenience wrapper (locates Git Bash) |
 | `tests/run-tests.sh` | Test suite |
-| `tests/golden.tsv` | Golden test fixtures |
+| `tests/golden.tsv` | Golden test fixtures (produced from real unbescape JAR output) |
 | `tests/vectors.tsv` | Hackvertor test vectors |
 | `tools/gen_tables.py` | Entity table generator |
 | `tools/build.py` | Single-file build script |
 | `tools/make_golden.py` | Test fixture generator |
+| `tools/flag-examples.sh` | Prints a verified example for every flag |
 | `tools/ref/` | Vendored unbescape 1.1.6 initialiser sources + Apache-2.0 licence |
 | `research/` | Evidence from the Nashorn probe against the real unbescape JAR, raw output, and source-faithful Python implementation |
 | `original-example/` | Vendored Hackvertor checkout used as the source for the ports |
+| `.gitignore`, `.gitattributes` | Ignore rules; LF pinning so the shell scripts cannot be checked out as CRLF |
 
 The following are **investigation artefacts** and are not required by the tool itself:
 

@@ -2621,21 +2621,32 @@ _dec_base32() {
   done
 }
 
+_hv_is_hexdigit() {
+  case $1 in
+    [0-9a-fA-F]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Convertors.hex2ascii() matches the regex ([0-9a-fA-F]{2})[\s,\-]? against the
+# whole string, so it *scans* for hex pairs and tolerates anything in between
+# (spaces, commas, dashes, colons, even junk).  This decoder does the same.
 _hv_hexdecode() {
-  local s=$1 i hi lo
-  s=${s//[$' \t\r\n']/}
-  for (( i=0; i+1<${#s}; i+=2 )); do
+  local s=$1 i=0 n=${#s} hi lo
+  while (( i + 1 < n )); do
     hi=${s:i:1}; lo=${s:i+1:1}
-    case $hi in [0-9a-fA-F]) ;; *) continue ;; esac
-    case $lo in [0-9a-fA-F]) ;; *) continue ;; esac
-    _hv_putb $(( 16#$hi$lo ))
+    if _hv_is_hexdigit "$hi" && _hv_is_hexdigit "$lo"; then
+      _hv_putb $(( 16#$hi$lo ))
+      i=$(( i + 2 ))
+    else
+      i=$(( i + 1 ))
+    fi
   done
 }
 
 _dec_hex() {
   local s=$1
   s=${s#0x}; s=${s#0X}
-  s=${s//[ ,\-]/}
   _hv_hexdecode "$s"
 }
 
