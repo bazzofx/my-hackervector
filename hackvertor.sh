@@ -3067,6 +3067,7 @@ OPTIONS
       --no-eval           never evaluate embedded tags
       --alg ALGO          JWT algorithm for -jwt (default HS256)
       --secret SECRET     JWT secret for -jwt (default "secret")
+      --debug             trace every pipeline step on stderr
       --                  end of options
 
 TAG FLAGS
@@ -3207,6 +3208,9 @@ main() {
   local i spec name argstr given last
   HV_UI_DEFAULTS=1        # -hex without arguments uses the Burp UI's " " default
   last=$(( ${#HV_TAGS[@]} - 1 ))
+  if [ "$HV_DEBUG" = 1 ]; then
+    printf '%s: input => %s\n' "$HV_PROG" "$HV_CURRENT" >&2
+  fi
   for (( i=0; i<${#HV_TAGS[@]}; i++ )); do
     spec=${HV_TAGS[i]}
     name=${spec%%$'\t'*}
@@ -3214,12 +3218,17 @@ main() {
     argstr=${spec%%$'\t'*}
     given=${spec#*$'\t'}
     _hv_split_args "$argstr" "$given"
+    _hv_dispatch "$name"
+    if [ "$HV_DEBUG" = 1 ]; then
+      # a trace on stderr only: stdout stays byte exact
+      printf '%s: step %d/%d %s%s => %s\n' \
+        "$HV_PROG" "$(( i + 1 ))" "${#HV_TAGS[@]}" "$name" \
+        "${given:+(${argstr})}" "$HV_RESULT" >&2
+    fi
     if [ "$i" -eq "$last" ]; then
-      _hv_dispatch "$name"
       _hv_write_result
       [ "$HV_FINAL_NL" = 1 ] && printf '\n'
     else
-      _hv_dispatch "$name"
       HV_CURRENT=$HV_RESULT
     fi
   done

@@ -191,8 +191,8 @@ check_text '-- separator protects a leading dash' 'LXRlc3Q=' -base64 -- '-test'
 check_hex_with run_hex_raw 'stdin without a trailing newline' '6447567a64413d3d' '74657374' -base64
 check_hex_with run_hex_raw 'stdin trailing newline is stripped' '6447567a64413d3d' '746573740a' -base64
 check_hex_with run_hex_raw 'stdin CRLF is stripped' '6447567a64413d3d' '746573740d0a' -base64
-check_hex_with run_hex_raw '-K keeps the trailing newline' '6447567a64413d3d0a' '746573740a' -base64 -K
-check_hex 'two input newlines keep both' '6447567a64413d3d0a0a' '746573740a0a' -base64 -K
+check_hex_with run_hex_raw '-K keeps the trailing newline' '6447567a64416f3d' '746573740a' -base64 -K
+check_hex 'two input newlines keep both' '6447567a64416f4b' '746573740a0a' -base64 -K
 check_hex_with run_hex_raw '-N omits the final newline' '6447567a64413d3d' '74657374' -base64 -N
 check_hex_with run_hex_raw 'empty input' '' '' -base64
 check_hex_with run_hex_raw 'no tag flag passes the content through' '74657374' '74657374'
@@ -227,6 +227,20 @@ check_hex 'decoder round trip' '74657374' '4f5253584735413d' -d_base32
 # exit codes and listings
 bash "$HV" --help > /dev/null 2>&1
 [ $? -eq 0 ] && pass '--help exits 0' || fail '--help exits 0' '00' ''
+
+# --debug traces on stderr and must not disturb stdout
+hex_to_file '74657374' "$TMP/in"
+bash "$HV" -K -N --debug -hex= -base64 < "$TMP/in" > "$TMP/out" 2> "$TMP/err"
+if [ "$(file_to_hex "$TMP/out")" = '4e7a51324e54637a4e7a513d' ]; then
+  pass '--debug keeps stdout byte exact'
+else
+  fail '--debug keeps stdout byte exact' '4e7a51324e54637a4e7a513d' "$(file_to_hex "$TMP/out")"
+fi
+if grep -q 'step 2/2 base64' "$TMP/err"; then
+  pass '--debug traces the pipeline steps on stderr'
+else
+  fail '--debug traces the pipeline steps on stderr' '' '' "stderr was: $(cat "$TMP/err")"
+fi
 
 bash "$HV" --list > "$TMP/list" 2>&1
 if [ $? -eq 0 ]; then pass '--list exits 0'; else fail '--list exits 0' '00' ''; fi
